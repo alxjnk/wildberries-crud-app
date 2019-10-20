@@ -1,16 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Grid, Typography, Button } from '@material-ui/core';
 
 import ItemArticleComponent from './ItemArticleComponent';
+import Modal from '../components/modal';
+
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 
 import { deleteArticle } from '../reducers/article-reducer';
 
+import { ModalHook } from '../hooks/modal-hook';
+
 const ListArticleComponent = (props) => {
 	const { deleteArticle, articles, history } = props;
+	const { open, handleClickOpen, handleClose } = ModalHook();
+
+	const [ idToDelete, setIdToDelete ] = useState(null);
+
 	return (
 		<Grid container direction="column" spacing={2} justify="center">
+			<Modal handleOk={() => deleteArticle(idToDelete)} open={open} handleClose={handleClose} />
 			<Grid item>
 				<Grid container justify="space-between">
 					<Grid item>
@@ -31,7 +40,10 @@ const ListArticleComponent = (props) => {
 				return (
 					<Grid item key={articles[key].id}>
 						<ItemArticleComponent
-							deleteArticle={() => deleteArticle(articles[key].id)}
+							deleteArticle={() => {
+								handleClickOpen();
+								setIdToDelete(articles[key].id);
+							}}
 							article={articles[key]}
 							history={history}
 						/>

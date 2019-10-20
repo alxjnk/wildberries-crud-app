@@ -7,9 +7,19 @@ import { reduxForm, getFormValues, initialize, focus, getFormSyncErrors, submit 
 import { deleteArticle, editArticle } from '../reducers/article-reducer';
 
 import Input from '../components/reduxInput';
+import DateTime from '../components/datePicker';
+import Modal from '../components/modal';
+
+import { ModalHook } from '../hooks/modal-hook';
+
+import { replaceSpace, maxLength } from '../utils';
+
+import { formatDistanceStrict, format } from 'date-fns';
 
 const AddArticleComponent = (props) => {
 	const { articles, match, history, initializeArticle, deleteArticle, articleFormValues, editArticle } = props;
+
+	const { open, handleClickOpen, handleClose } = ModalHook();
 
 	const isEdit = history.location.search.replace(/^.*?\=/, ''); // edit mode
 	let { id } = match.params;
@@ -18,12 +28,14 @@ const AddArticleComponent = (props) => {
 	const [ edit, setEdit ] = useState(isEdit);
 	const [ tags, setTags ] = useState([]);
 
+	const today = new Date();
+
 	const initialFormValue = {
 		name: '',
 		slug: '',
 		content: '',
-		dateFrom: new Date().toDateString(),
-		dateTo: new Date().toDateString(),
+		dateFrom: new Date(),
+		dateTo: new Date(today.getTime() + 24 * 60 * 60 * 1000),
 		tag: '',
 		tags: []
 	};
@@ -74,26 +86,49 @@ const AddArticleComponent = (props) => {
 	const handleDeleteTag = (i) => {
 		let newArticle = articleFormValues;
 		newArticle.tags.splice(i, 1);
-		editArticle(id, newArticle);
 		setTags([ ...newArticle.tags ]);
 	};
 
 	const handleAddTag = (tag) => {
 		let newArticle = articleFormValues;
 		newArticle.tags.push(tag);
-		editArticle(id, newArticle);
 		setTags([ ...newArticle.tags ]);
+		initializeArticle({...newArticle, tag: ''})
 	};
 
 	return (
 		<Grid container spacing={2} direction="column">
+			<Modal handleOk={() => handleDeleteArticle(id)} open={open} handleClose={handleClose} />
 			<Grid item xs={12}>
-				<Button variant="outlined" color="secondary" onClick={() => history.push('/')}>
-					{'< НАЗАД'}
-				</Button>
+				<Grid container spaceing={2} justify="space-between">
+					<Grid item xs={2}>
+						<Button variant="outlined" color="secondary" onClick={() => history.push('/')}>
+							{'< BACK'}
+						</Button>
+					</Grid>
+
+					<Grid item xs={4}>
+						{edit ? (
+							<DateTime name="dateFrom" label={'Time started'} maxDate={dateTo} />
+						) : (
+							<Button variant="outlined" color="primary" style={{cursor: 'auto', backgroundColor: 'transparent'}} disableFocusRipple disableRipple>from {format(dateFrom, 'd/M/u H:M')}</Button>
+						)}
+					</Grid>
+					<Grid item xs={4}>
+						{edit ? (
+							<DateTime name="dateTo" label={'Time finished'} minDate={dateFrom} />
+						) : (
+							<Button variant="outlined" color="secondary" style={{cursor: 'auto', backgroundColor: 'transparent'}} disableFocusRipple disableRipple>to {format(dateTo, 'd/M/u H:M')}</Button>
+						)}
+					</Grid>
+				</Grid>
 			</Grid>
 			<Grid item xs={12} style={{ width: '100%' }}>
-				{edit ? <Input name="name" placeholder="Title" /> : <Typography variant="h4">{name}</Typography>}
+				{edit ? (
+					<Input name="name" placeholder="Title" normalize={maxLength(60)} />
+				) : (
+					<Typography variant="h4">{name}</Typography>
+				)}
 			</Grid>
 			<Grid item xs={12} style={{ width: '100%' }}>
 				{edit ? (
@@ -110,7 +145,7 @@ const AddArticleComponent = (props) => {
 								key={el + i}
 								label={el}
 								variant="outlined"
-								style={{ marginLeft: 5 }}
+								style={{ marginLeft: 5, marginTop: 5 }}
 								onDelete={edit ? () => handleDeleteTag(i) : null}
 							/>
 						))}
@@ -119,7 +154,7 @@ const AddArticleComponent = (props) => {
 						<Grid item xs={12} style={{ width: '100%' }}>
 							<Grid container justify="space-between">
 								<Grid item xs={10}>
-									<Input name="tag" placeholder="Tag" />{' '}
+									<Input name="tag" placeholder="Tag" normalize={maxLength(10)} />{' '}
 								</Grid>
 								<Grid item xs={1}>
 									<Button
@@ -138,7 +173,7 @@ const AddArticleComponent = (props) => {
 			<Grid item xs={12} style={{ width: '100%' }}>
 				<Grid container justify="space-between">
 					<Grid item xs={3}>
-						{edit ? <Input name="slug" placeholder="Slug" /> : <Link>{slug}</Link>}
+						{edit ? <Input name="slug" placeholder="Slug" normalize={replaceSpace} /> : <Link>{slug}</Link>}
 					</Grid>
 					{edit ? (
 						<Grid item xs={1}>
@@ -148,7 +183,7 @@ const AddArticleComponent = (props) => {
 						</Grid>
 					) : (
 						<Grid item xs={4} style={{ display: 'flex', flexDirection: 'row-reverse' }}>
-							<Button color="secondary" onClick={() => handleDeleteArticle(id)}>
+							<Button color="secondary" onClick={handleClickOpen}>
 								Delete
 							</Button>
 							<Button color="primary" onClick={() => setEdit(!edit)}>
@@ -175,6 +210,14 @@ const validate = (values) => {
 	Object.keys(requiredFields).forEach((key) => {
 		if (!values[key]) {
 			errors[key] = 'Please, fill in ' + requiredFields[key];
+		}
+		if (values['dateFrom'] && values['dateTo']) {
+			if (values['dateFrom'].length < 24) {
+				errors['dateFrom'] = 'error';
+			}
+			if (values['dateTo'].length < 24) {
+				errors['dateTo'] = 'error';
+			}
 		}
 	});
 
